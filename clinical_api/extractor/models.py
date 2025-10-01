@@ -6,9 +6,9 @@ class ClinicalNote(models.Model):
 
 class ExtractedEntity(models.Model):
     note = models.ForeignKey(ClinicalNote, on_delete=models.CASCADE, related_name="entities")
-    text = models.CharField(max_length=255)
-    label = models.CharField(max_length=50)
-    start_char = models.IntegerField()
-    end_char = models.IntegerField()
-    patient_name = models.CharField(max_length=255, null=True)         
-     
+    person = models.CharField(max_length=255)
+    drug = models.CharField(max_length=255)   
+    frequency = models.CharField(max_length=255)
+    strength = models.IntegerField()
+            
+          

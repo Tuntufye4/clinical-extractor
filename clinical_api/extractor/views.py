@@ -1,7 +1,7 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-import spacy  
+import spacy
 
 # Load Med7 (clinical NER)
 med7 = spacy.load("en_core_med7_lg")
@@ -18,13 +18,14 @@ class EntityExtractor(APIView):
         med7_doc = med7(text)
         general_doc = general_nlp(text)
 
-        entities = []
+        # Dict to store entities by type
+        extracted_entities = {}
 
         # 1️⃣ Collect clinical entities from Med7
         clinical_spans = []
         for ent in med7_doc.ents:
             if ent.label_ != "PERSON":  # safeguard
-                entities.append({"text": ent.text, "label": ent.label_})
+                extracted_entities.setdefault(ent.label_, []).append(ent.text)
                 clinical_spans.append((ent.start_char, ent.end_char))  # track ranges
 
         # 2️⃣ Add PERSON only if it doesn't overlap with clinical entities
@@ -34,19 +35,15 @@ class EntityExtractor(APIView):
                     ent.start_char < c_end and ent.end_char > c_start
                     for c_start, c_end in clinical_spans
                 )
-                if not overlap:  # only add if no overlap
-                    entities.append({"text": ent.text, "label": "PERSON"})
+                if not overlap:
+                    extracted_entities.setdefault("PERSON", []).append(ent.text)
 
-        # 3️⃣ Deduplicate by (text, label)
-        unique_entities = []
-        seen = set()
-        for e in entities:
-            key = (e["text"], e["label"])
-            if key not in seen:
-                seen.add(key)
-                unique_entities.append(e)
+        # 3️⃣ Deduplicate entity values
+        for label in extracted_entities:
+            extracted_entities[label] = list(set(extracted_entities[label]))
 
         return Response({
-            "text": text,
-            "entities": unique_entities
-        })
+            "text": text,          
+            "entities": extracted_entities
+        })   
+           
