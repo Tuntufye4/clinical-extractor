@@ -2,13 +2,20 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from .models import ClinicalNote, ExtractedEntity
+from .serializers import ClinicalNoteSerializer, ExtractedEntitySerializer
 import spacy
+import re
 
 # Load models
-med7 = spacy.load("en_core_med7_lg")      # clinical NER
-general_nlp = spacy.load("en_core_web_sm")  # for PERSON
+med7 = spacy.load("en_core_med7_lg")       # clinical model
+general_nlp = spacy.load("en_core_web_sm")  # general model for PERSON, AGE, etc.
 
 class EntityExtractor(APIView):
+    """
+    POST → Extract entities and save them.
+    GET  → Retrieve all stored clinical notes and extracted entities.
+    """
+
     def post(self, request):
         text = request.data.get("text", "")
         if not text:
@@ -26,6 +33,7 @@ class EntityExtractor(APIView):
 
         entities_dict = {
             "person": [],
+            "age": [],
             "drug": [],
             "strength": [],
             "frequency": [],
@@ -46,21 +54,28 @@ class EntityExtractor(APIView):
                 entities_dict[label].append(ent.text)
             clinical_spans.append((ent.start_char, ent.end_char))
 
-        # 2️⃣ Extract PERSON if no overlap
+        # 2️⃣ Extract PERSON (avoid overlap)
         for ent in general_doc.ents:
             if ent.label_ == "PERSON":
                 overlap = any(ent.start_char < end and ent.end_char > start for start, end in clinical_spans)
                 if not overlap:
                     entities_dict["person"].append(ent.text)
 
-        # Deduplicate
+        # 3️⃣ Extract AGE using regex or patterns
+        age_pattern = re.compile(r"\b(\d{1,3})[- ]?(year[- ]old|years? old)\b", re.IGNORECASE)
+        ages = [match[0] for match in age_pattern.findall(text)]
+        if ages:
+            entities_dict["age"].extend(ages)
+
+        # Deduplicate entities
         for key in entities_dict:
             entities_dict[key] = list(set(entities_dict[key]))
 
-        # Save extracted entities to DB
+        # Save extracted entities
         ExtractedEntity.objects.create(
             note=note,
             person=", ".join(entities_dict["person"]) if entities_dict["person"] else None,
+            age=", ".join(entities_dict["age"]) if entities_dict["age"] else None,
             drug=", ".join(entities_dict["drug"]) if entities_dict["drug"] else None,
             strength=", ".join(entities_dict["strength"]) if entities_dict["strength"] else None,
             frequency=", ".join(entities_dict["frequency"]) if entities_dict["frequency"] else None,
@@ -77,4 +92,19 @@ class EntityExtractor(APIView):
             "text": text,
             "entities": entities_dict
         }, status=status.HTTP_201_CREATED)
-       
+
+    def get(self, request):
+        """
+        GET all stored notes and their extracted entities.
+        """
+        notes = ClinicalNote.objects.all().order_by("-created_at")
+        data = []
+        for note in notes:
+            entities = ExtractedEntity.objects.filter(note=note)
+            entity_data = ExtractedEntitySerializer(entities, many=True).data
+            data.append({
+                "note": ClinicalNoteSerializer(note).data,
+                "entities": entity_data
+            })
+        return Response(data, status=status.HTTP_200_OK)
+   
