@@ -1,33 +1,59 @@
-import React, { useState } from "react";
+import { useState } from "react";
+import axios from "axios";
 
-export default function NoteForm({ onSubmit, loading }) {
+export default function NoteForm() {
   const [text, setText] = useState("");
+  const [response, setResponse] = useState(null);
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e) => {
+  async function handleSubmit(e) {
     e.preventDefault();
-    if (!text.trim()) return alert("Please enter a note first.");
-    onSubmit(text);
-    setText("");
-  };
+    if (!text.trim()) return;
+    setLoading(true);
+
+    try {
+      const res = await axios.post("http://localhost:8000/api/extract/", { text });
+      setResponse(res.data);
+      setText("");
+    } catch {
+      setResponse({ error: "Failed to extract entities." });
+    } finally {
+      setLoading(false);
+    }
+  }
 
   return (
-    <form onSubmit={handleSubmit} className="bg-gray-50 p-6 rounded-2xl shadow-md">
-      <label className="block mb-2 font-semibold text-gray-700">
-        Enter Clinical Note:
-      </label>
-      <textarea    
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        placeholder="Type or paste clinical note here..."
-        className="w-full h-32 p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
-      ></textarea>
-      <button
-        type="submit"
-        disabled={loading}
-        className="mt-4 px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold transition disabled:opacity-50"
-      >
-        {loading ? "Extracting..." : "Extract Entities"}
-      </button>
-    </form>
+    <div>
+      <h2 className="text-2xl font-semibold mb-4 text-gray-800">Submit a Clinical Note</h2>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <textarea
+          className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-400 focus:outline-none"
+          rows="5"
+          placeholder="Enter clinical text..."
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+        />
+        <button
+          type="submit"
+          className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
+          disabled={loading}
+        >
+          {loading ? "Extracting..." : "Extract Entities"}
+        </button>
+      </form>
+
+      {response && (
+        <div className="mt-6 p-4 bg-gray-100 rounded-lg">
+          {response.error ? (
+            <p className="text-red-500">{response.error}</p>
+          ) : (
+            <>
+              <p className="text-gray-700 font-medium">✅ Extraction Successful</p>
+            </>
+          )}
+        </div>   
+      )}
+    </div>
   );
 }
+    

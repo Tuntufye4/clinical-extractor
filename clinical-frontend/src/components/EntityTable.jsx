@@ -1,97 +1,94 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
 
-export default function EntityTable() {   
+export default function EntityTable() {
   const [entities, setEntities] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [error, setError] = useState(null);
 
+  // Fetch extracted entities from backend
   useEffect(() => {
     async function fetchEntities() {
       try {
         const res = await axios.get("http://localhost:8000/api/extract/");
-        if (res.data.message === "No entities found. Try posting a note first.") {
-          setError(res.data.message);
-          setEntities([]);
-        } else {
-          setEntities(res.data);
-        }
+        const extracted = [];
+
+        // Flatten nested data (notes + entities)
+        res.data.forEach((item) => {
+          item.entities.forEach((ent) => {
+            extracted.push({
+              id: ent.id,
+              note: item.note.text,
+              person: ent.person || "-",
+              age: ent.age || "-",
+              drug: ent.drug || "-",
+              strength: ent.strength || "-",
+              frequency: ent.frequency || "-",
+              route: ent.route || "-",
+              duration: ent.duration || "-",
+              form: ent.form || "-",
+              dosage: ent.dosage || "-",
+              diagnosis: ent.diagnosis || "-",
+              condition: ent.condition || "-",
+              created_at: item.note.created_at,
+            });
+          });
+        });
+
+        setEntities(extracted);
       } catch (err) {
-        setError("Failed to load entities. Please check the API.");
+        console.error("Error fetching entities:", err);
+        setError("Failed to load extracted entities. Check your backend connection.");
       } finally {
         setLoading(false);
       }
     }
-    fetchEntities();
-  }, []);
 
-  if (loading)
-    return (
-      <div className="text-center text-gray-500 mt-10">Loading entities...</div>
-    );
+    fetchEntities();
+  }, []);   
 
   if (error)
-    return (
-      <div className="text-center text-red-500 mt-10 font-medium">
-        {error}
-      </div>
-    );
-
-  if (entities.length === 0)
-    return (
-      <div className="text-center text-gray-500 mt-10">
-        No entities found. Try posting a note first.
-      </div>
-    );
+    return <p className="text-red-500 text-center mt-10">{error}</p>;
 
   return (
-    <div className="p-6">
-      <h2 className="text-2xl font-semibold mb-6 text-gray-800">
-        Extracted Entities
-      </h2>
-      {entities.map((entry, index) => (
-        <div
-          key={index}
-          className="bg-white shadow-md rounded-2xl p-5 mb-6 border border-gray-200"
-        >
-          <h3 className="text-lg font-medium mb-2 text-gray-700">
-            Clinical Note #{entry.note.id}
-          </h3>
-          <p className="text-gray-600 mb-4">{entry.note.text}</p>
-
-          {entry.entities.length > 0 ? (
-            <table className="min-w-full border border-gray-300 rounded-lg overflow-hidden">
-              <thead className="bg-gray-100">
-                <tr>
-                  <th className="py-2 px-3 border-b text-left text-gray-700 font-medium">
-                    Entity Type
-                  </th>
-                  <th className="py-2 px-3 border-b text-left text-gray-700 font-medium">
-                    Values
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {Object.entries(entry.entities[0])
-                  .filter(([key]) => !["id", "note"].includes(key))
-                  .map(([key, value]) => (
-                    <tr key={key} className="hover:bg-gray-50">
-                      <td className="py-2 px-3 border-b capitalize text-gray-800">
-                        {key}
-                      </td>
-                      <td className="py-2 px-3 border-b text-gray-600">
-                        {value || "-"}
-                      </td>
-                    </tr>
-                  ))}
-              </tbody>
-            </table>
-          ) : (
-            <p className="text-gray-500 italic">No entities extracted.</p>
-          )}
-        </div>
-      ))}   
+    <div className="overflow-x-auto">
+      <h2 className="text-2xl font-semibold mb-6 text-gray-800">Extracted Entities</h2>
+      <table className="min-w-full bg-white border border-gray-200 rounded-lg shadow-sm text-sm">
+        <thead className="bg-gray-100 text-gray-700 uppercase text-xs">
+          <tr>
+            <th className="p-3 text-left">Person</th>
+            <th className="p-3 text-left">Age</th>
+            <th className="p-3 text-left">Drug</th>
+            <th className="p-3 text-left">Strength</th>
+            <th className="p-3 text-left">Frequency</th>
+            <th className="p-3 text-left">Duration</th>
+            <th className="p-3 text-left">Form</th>
+            <th className="p-3 text-left">Diagnosis</th>
+            <th className="p-3 text-left">Condition</th>
+            <th className="p-3 text-left">Note Text</th>
+            <th className="p-3 text-left">Created At</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-gray-100">
+          {entities.map((ent) => (
+            <tr key={ent.id} className="hover:bg-gray-50 transition">
+              <td className="p-3">{ent.person}</td>
+              <td className="p-3">{ent.age}</td>
+              <td className="p-3">{ent.drug}</td>
+              <td className="p-3">{ent.strength}</td>
+              <td className="p-3">{ent.frequency}</td>
+              <td className="p-3">{ent.duration}</td>
+              <td className="p-3">{ent.form}</td>
+              <td className="p-3">{ent.diagnosis}</td>
+              <td className="p-3">{ent.condition}</td>
+              <td className="p-3 max-w-[250px] truncate">{ent.note}</td>
+              <td className="p-3 text-gray-400">
+                {new Date(ent.created_at).toLocaleString()}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
-               
