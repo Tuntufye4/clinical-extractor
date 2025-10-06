@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from "react";
 import Sidebar from "./components/Sidebar";
 import NoteForm from "./components/NoteForm";
-import EntityTable from "./components/EntityTable";
+import EntityTable from "./components/EntityTable";   
+import Unextractednotes from "./components/UnextractedList";
 
 export default function App() {
   const [activeSection, setActiveSection] = useState("noteForm");
@@ -27,7 +28,7 @@ export default function App() {
   // Fetch unextracted notes
   const fetchNotes = async () => {
     try {
-      const response = await fetch("http://localhost:8000/api/extract/");
+      const response = await fetch("http://localhost:8000/api//");
       if (!response.ok) {
         console.error("Failed to fetch notes:", response.status);
         return;
@@ -51,7 +52,7 @@ export default function App() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text: noteText }),
       });
-        
+
       if (!response.ok) {
         console.error("Extraction failed:", response.status);
         return;
@@ -80,23 +81,7 @@ export default function App() {
         )}
 
         {activeSection === "notes" && (
-          <div>
-            <h2 className="text-2xl font-bold mb-4">Unextracted Notes</h2>
-            {notes.length === 0 ? (
-              <p>No notes found. Try adding one.</p>
-            ) : (
-              <ul className="space-y-3">
-                {notes.map((note) => (
-                  <li
-                    key={note.id}
-                    className="p-4 bg-white rounded-lg shadow border"
-                  >
-                    {note.text}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
+          <Unextractednotes entities={entities} />
         )}
 
         {activeSection === "entities" && (

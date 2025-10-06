@@ -23,8 +23,7 @@ export default function NoteForm() {
   }
 
   return (
-    <div>
-      <h2 className="text-2xl font-semibold mb-4 text-gray-800">Submit a Clinical Note</h2>
+    <div>   
       <form onSubmit={handleSubmit} className="space-y-4">
         <textarea
           className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-400 focus:outline-none"

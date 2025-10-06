@@ -8,7 +8,7 @@ import {
 export default function Sidebar({ activeSection, setActiveSection }) {
   const menuItems = [
     { id: "noteForm", label: "Note Form", icon: ClipboardDocumentListIcon },
-    { id: "notes", label: "Unextracted Notes", icon: Square3Stack3DIcon },
+    { id: "notes", label: "Clinical Notes", icon: Square3Stack3DIcon },
     { id: "entities", label: "Extracted Entities", icon: DocumentMagnifyingGlassIcon },
   ];
 
@@ -18,7 +18,7 @@ export default function Sidebar({ activeSection, setActiveSection }) {
         <h2 className="text-xl font-bold text-gray-800">Entity Extractor</h2>
       </div>
 
-      <nav className="flex-1 px-2 py-4 space-y-1">
+      <nav className="flex-1 px-2 py-4 space-y-16">   
         {menuItems.map((item) => {
           const Icon = item.icon;
           const isActive = activeSection === item.id;
@@ -38,5 +38,5 @@ export default function Sidebar({ activeSection, setActiveSection }) {
         })}
       </nav>
     </div>
-  );
+  );  
 }
