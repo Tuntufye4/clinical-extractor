@@ -6,14 +6,38 @@ from .serializers import ClinicalNoteSerializer, ExtractedEntitySerializer
 import spacy
 import re
 
-# Load models
-med7 = spacy.load("en_core_med7_lg")       # clinical model
-general_nlp = spacy.load("en_core_web_sm")  # general model for PERSON, AGE, etc.
+# ---------- Safe Model Loader ----------
+def load_model_safe(model_name):
+    """
+    Tries to load a spaCy model; downloads it if not already installed.
+    This ensures Render and other production environments can load med7.
+    """
+    try:
+        return spacy.load(model_name)
+    except OSError:
+        from spacy.cli import download
+        download(model_name)
+        return spacy.load(model_name)
 
+# ---------- Load Models ----------
+try:
+    med7 = load_model_safe("en_core_med7_lg")       # Clinical model
+except Exception as e:
+    print("⚠️ Warning: Failed to load med7 model:", e)
+    med7 = None
+
+try:
+    general_nlp = load_model_safe("en_core_web_sm")  # General model (PERSON, AGE, etc.)
+except Exception as e:
+    print("⚠️ Warning: Failed to load general NLP model:", e)
+    general_nlp = None
+
+
+# ---------- Entity Extraction View ----------
 class EntityExtractor(APIView):
     """
-    POST → Extract entities and save them.
-    GET  → Retrieve all stored clinical notes and extracted entities.
+    POST → Extract entities from a clinical note and save them.
+    GET  → Retrieve all stored notes with extracted entities.
     """
 
     def post(self, request):
@@ -21,14 +45,20 @@ class EntityExtractor(APIView):
         if not text:
             return Response({"error": "No text provided"}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Store the note
+        if med7 is None or general_nlp is None:
+            return Response(
+                {"error": "Models not loaded. Please check server configuration."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+        # Store the raw note
         note = ClinicalNote.objects.create(text=text)
 
-        # Process text
+        # Process with both models
         med7_doc = med7(text)
         general_doc = general_nlp(text)
 
-        # Track clinical spans to avoid PERSON overlaps
+        # Track spans to avoid overlap (for PERSON)
         clinical_spans = []
 
         entities_dict = {
@@ -45,7 +75,7 @@ class EntityExtractor(APIView):
             "condition": []
         }
 
-        # 1️⃣ Extract clinical entities
+        # --------- Step 1: Extract Clinical Entities ---------
         for ent in med7_doc.ents:
             label = ent.label_.lower()
             if label == "person":
@@ -54,49 +84,50 @@ class EntityExtractor(APIView):
                 entities_dict[label].append(ent.text)
             clinical_spans.append((ent.start_char, ent.end_char))
 
-        # 2️⃣ Extract PERSON (avoid overlap)
+        # --------- Step 2: Extract PERSON (avoid overlaps) ---------
         for ent in general_doc.ents:
             if ent.label_ == "PERSON":
                 overlap = any(ent.start_char < end and ent.end_char > start for start, end in clinical_spans)
                 if not overlap:
                     entities_dict["person"].append(ent.text)
 
-        # 3️⃣ Extract AGE using regex or patterns
+        # --------- Step 3: Extract AGE via regex ---------
         age_pattern = re.compile(r"\b(\d{1,3})[- ]?(year[- ]old|years? old)\b", re.IGNORECASE)
         ages = [match[0] for match in age_pattern.findall(text)]
         if ages:
             entities_dict["age"].extend(ages)
 
-        # Deduplicate entities
+        # --------- Step 4: Deduplicate ---------
         for key in entities_dict:
             entities_dict[key] = list(set(entities_dict[key]))
 
-        # Save extracted entities
+        # --------- Step 5: Save Entities ---------
         ExtractedEntity.objects.create(
             note=note,
-            person=", ".join(entities_dict["person"]) if entities_dict["person"] else None,
-            age=", ".join(entities_dict["age"]) if entities_dict["age"] else None,
-            drug=", ".join(entities_dict["drug"]) if entities_dict["drug"] else None,
-            strength=", ".join(entities_dict["strength"]) if entities_dict["strength"] else None,
-            frequency=", ".join(entities_dict["frequency"]) if entities_dict["frequency"] else None,
-            route=", ".join(entities_dict["route"]) if entities_dict["route"] else None,
-            duration=", ".join(entities_dict["duration"]) if entities_dict["duration"] else None,
-            form=", ".join(entities_dict["form"]) if entities_dict["form"] else None,
-            dosage=", ".join(entities_dict["dosage"]) if entities_dict["dosage"] else None,
-            diagnosis=", ".join(entities_dict["diagnosis"]) if entities_dict["diagnosis"] else None,
-            condition=", ".join(entities_dict["condition"]) if entities_dict["condition"] else None
+            person=", ".join(entities_dict["person"]) or None,
+            age=", ".join(entities_dict["age"]) or None,
+            drug=", ".join(entities_dict["drug"]) or None,
+            strength=", ".join(entities_dict["strength"]) or None,
+            frequency=", ".join(entities_dict["frequency"]) or None,
+            route=", ".join(entities_dict["route"]) or None,
+            duration=", ".join(entities_dict["duration"]) or None,
+            form=", ".join(entities_dict["form"]) or None,
+            dosage=", ".join(entities_dict["dosage"]) or None,
+            diagnosis=", ".join(entities_dict["diagnosis"]) or None,
+            condition=", ".join(entities_dict["condition"]) or None,
         )
 
-        return Response({
-            "note_id": note.id,
-            "text": text,
-            "entities": entities_dict
-        }, status=status.HTTP_201_CREATED)
+        return Response(
+            {
+                "note_id": note.id,
+                "text": text,
+                "entities": entities_dict
+            },
+            status=status.HTTP_201_CREATED
+        )
 
     def get(self, request):
-        """
-        GET all stored notes and their extracted entities.
-        """
+        """Return all saved clinical notes and their extracted entities."""
         notes = ClinicalNote.objects.all().order_by("-created_at")
         data = []
         for note in notes:
@@ -107,4 +138,4 @@ class EntityExtractor(APIView):
                 "entities": entity_data
             })
         return Response(data, status=status.HTTP_200_OK)
-   
+      
