@@ -6,17 +6,17 @@ SECRET_KEY = 'django-insecure-a&%#2j+5g1c%agnhx6law=x9_@jlfbkt(3rkj$&*1v^(=38i51
 
 DEBUG = True
 
-ALLOWED_HOSTS = ['*']
+ALLOWED_HOSTS = ['clinical-extractor.onrender.com','*']
 
 # -----------------------------
 # ✅ Installed Apps
 # -----------------------------
 INSTALLED_APPS = [
     'django.contrib.admin',
-    'django.contrib.auth',
+    'django.contrib.auth',   
     'django.contrib.contenttypes',
     'django.contrib.sessions',
-    'django.contrib.messages',
+    'django.contrib.messages',  
     'django.contrib.staticfiles',
 
     # Added
@@ -106,13 +106,14 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # -----------------------------
 # ✅ CORS Settings
 # -----------------------------
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:5173",  # React Vite frontend
-]
+#CORS_ALLOWED_ORIGINS = [
+#    "http://localhost:5173",  # React Vite frontend
+#]
+CORS_ALLOW_ALL_ORIGINS = True   
 
-CSRF_TRUSTED_ORIGINS = [
-    "http://localhost:5173",
-]
+#CSRF_TRUSTED_ORIGINS = [
+#    "http://localhost:5173",
+#]
 
 # (Optional, for development only)
 # CORS_ALLOW_ALL_ORIGINS = True

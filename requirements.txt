@@ -1,0 +1,18 @@
+# Django and API
+Django>=4.2 
+djangorestframework
+djangorestframework-simplejwt
+django-cors-headers
+psycopg2-binary   # if using Postgres
+
+# Utilities   
+PyYAML>=6.0
+
+# Production   
+gunicorn>=21.2.0
+whitenoise>=6.6.0    
+
+# NLP (clinical text)
+spacy<=2.3.2,>=2.1.0
+git+https://github.com/kormilitzin/med7.git
+        
